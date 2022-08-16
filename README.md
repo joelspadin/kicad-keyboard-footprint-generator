@@ -14,7 +14,7 @@ By default the scripts will create a library at `./out/{name}.pretty`, where `{n
 
 Due to a limitation in KiCad, any 3D models associated with footprints have their file paths relative to the project directory. If you want to place libraries in a subdirectory, include the subdirectory name in the `--name` argument, e.g. `--name libraries/MX_Hotswap` will set the paths correctly if the library is located at `libraries/MX_Hotswap.pretty` inside your project.
 
-The scripts generate footprints for standard key sizes up to 7U. To make additional sizes, edit the size arrays in [tools/mx.py](tools/mx.py) or create your own scripts that use the `KicadKeyboardFootprints` module.
+The scripts generate footprints for standard key sizes up to 7U. To make additional sizes, edit the size arrays in [scripts/tools/mx.py](scripts/tools/mx.py) or create your own scripts that use the `KicadKeyboardFootprints` module.
 
 ### Examples
 
