@@ -161,3 +161,8 @@ cython_debug/
 
 # Generated footprints
 out/
+
+# VS Code settings
+/.vscode/**
+!/.vscode/extensions.json
+!/.vscode/*.default.*

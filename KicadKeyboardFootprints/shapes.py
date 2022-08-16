@@ -1,38 +1,23 @@
 from itertools import pairwise
-from typing import Any, Iterable, Literal, Optional, Tuple, TypeGuard
+from typing import Any, Optional
 from KicadModTree import (
     Vector2D,
+    Vector3D,
     Footprint,
     Pad,
     RectLine,
     FilledRect,
     Line,
+    Polygon,
     Arc,
     Circle,
+    Text,
 )
 
 from .layer import F_SILK
 from .types import Number, Vec2
 
 ORIGIN = Vector2D(0, 0)
-
-
-class Transform:
-    translate: Vector2D
-    rotate: int
-
-    def __init__(self, translate: Vec2 = ORIGIN, rotate=0):
-        self.translate = Vector2D(translate)
-        self.rotate = rotate
-
-    def apply(self, p: Vec2) -> Vector2D:
-        return self.translate + rotate(p, self.rotate)
-
-    def __call__(self, p: Vec2) -> Vector2D:
-        return self.apply(p)
-
-
-IDENTITY = Transform()
 
 
 def normalize_angle(angle: int) -> int:
@@ -72,6 +57,50 @@ def rotate_rect(dims: Vec2, angle: int):
     raise ValueError("angle must be a multiple of 90")
 
 
+def to_vec2(x: Number | Vec2):
+    if isinstance(x, (int, float)):
+        return Vector2D(x, x)
+    return Vector2D(x)
+
+
+def to_vec3(x: Any):
+    if isinstance(x, (int, float)):
+        return Vector3D(x, x, x)
+    return Vector3D(x)
+
+
+class Transform:
+    """
+    2D transformation.
+
+    Transformations are applied in the order scale, rotate, translate.
+    """
+
+    rotate: int
+    translate: Vector2D
+    scale: Vector2D
+
+    def __init__(self, translate: Vec2 = ORIGIN, rotate=0, scale: Number | Vec2 = 1):
+        self.translate = Vector2D(translate)
+        self.rotate = rotate
+        self.scale = to_vec2(scale)
+
+    def apply(self, p: Vec2) -> Vector2D:
+        return rotate(Vector2D(p) * self.scale, self.rotate) + self.translate
+
+    def with_rotation(self, rotate: Number):
+        return Transform(self.translate, rotate, self.scale)
+
+    def with_scale(self, scale: Number | Vec2):
+        return Transform(self.translate, self.rotate, scale)
+
+    def __call__(self, p: Vec2) -> Vector2D:
+        return self.apply(p)
+
+
+IDENTITY = Transform()
+
+
 def add_npth(mod: Footprint, at: Vec2, size: Number, transform=IDENTITY):
     """
     Add a non-plated through hole to the footprint.
@@ -93,7 +122,7 @@ def add_npth(mod: Footprint, at: Vec2, size: Number, transform=IDENTITY):
     )
 
 
-def add_through_hole(
+def add_tht_pad(
     mod: Footprint,
     number: int,
     at: Vec2,
@@ -169,7 +198,15 @@ def add_square(
     fill=False,
     transform=IDENTITY,
 ):
-    add_rect(mod, center, (size, size), stroke, layer, fill, transform)
+    add_rect(
+        mod,
+        center=center,
+        size=(size, size),
+        layer=layer,
+        stroke=stroke,
+        fill=fill,
+        transform=transform,
+    )
 
 
 def add_circle(
@@ -214,6 +251,23 @@ def add_arc(
     mod.append(Arc(start=start, center=center, end=end, layer=layer, width=stroke))
 
 
+def add_polygon(
+    mod: Footprint,
+    nodes: list[Vec2],
+    layer=F_SILK,
+    stroke: Optional[Number] = None,
+    fill=False,
+    transform=IDENTITY,
+):
+    if fill:
+        nodes = [transform(p) for p in nodes]
+        mod.append(Polygon(nodes=nodes, layer=layer, width=stroke))
+    else:
+        # KicadModTree doesn't provide a way to make a non-filled polygon
+        nodes.append(nodes[0])
+        add_curve(mod, points=nodes, layer=layer, stroke=stroke, transform=transform)
+
+
 class ArcCenter:
     center: Vector2D
 
@@ -245,3 +299,25 @@ def add_curve(
 
             case s, e:
                 add_line(mod, s, e, layer, stroke, transform)
+
+
+def add_text(
+    mod: Footprint,
+    type: str,
+    text: str,
+    at: Vec2,
+    rotation=0,
+    layer=F_SILK,
+    transform=IDENTITY,
+    **kwargs
+):
+    mod.append(
+        Text(
+            type=type,
+            text=text,
+            at=transform(at),
+            rotation=rotation + transform.rotate,
+            layer=layer,
+            **kwargs,
+        )
+    )

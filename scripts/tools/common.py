@@ -38,8 +38,10 @@ def permute_options(**kwargs):
         yield {key: value for key, value in zip(keys, options)}
 
 
-def make_footprints(lib_name: str, generator: Callable[..., Footprint], **kwargs):
-    out_dir = Path("out")
+def make_footprints(
+    out_dir: Path | str, lib_name: str, generator: Callable[..., Footprint], **kwargs
+):
+    out_dir = Path(out_dir)
     lib_dir = out_dir / f"{lib_name}.pretty"
     lib_dir.mkdir(parents=True, exist_ok=True)
 

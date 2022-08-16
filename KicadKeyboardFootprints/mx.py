@@ -1,26 +1,30 @@
-from enum import Enum
-from itertools import pairwise
 from typing import Dict, List, Literal
-from KicadModTree import (
-    Footprint,
-    Model,
-    Pad,
-    Vector2D,
-    Vector3D,
-    Arc,
-    Circle,
-    Line,
-    Text,
-)
+from KicadModTree import Footprint, Model, Pad, Vector2D, Vector3D, Text
 from KicadModTree.util.paramUtil import round_to
-
-from KicadKeyboardFootprints.model import MODEL_PATH_PLACEHOLDER
+from .layer import B_FAB, B_SILK, F_COURT, F_FAB, F_SILK, USER_DRAWING
+from .model import LIB_PATH_PLACEHOLDER
+from .shapes import (
+    IDENTITY,
+    ArcCenter,
+    Transform,
+    add_circle,
+    add_curve,
+    add_npth,
+    add_polygon,
+    add_rect,
+    add_smt_pad,
+    add_square,
+    add_text,
+    add_tht_pad,
+    normalize_angle,
+    to_vec3,
+)
 
 from .types import Number, Switch, Mount, Led, Stabilizer, Vec2
-from .util import make_npth, make_rect, normalize_angle, rotate, rotate_rect
 
 
 UNIT_SIZE = 19.05
+UNIT_SCALE = Transform(scale=UNIT_SIZE)
 
 
 def make_mx_switch(
@@ -28,7 +32,7 @@ def make_mx_switch(
     switch=Switch.SOLDER,
     mount=Mount.PCB,
     led=Led.NONE,
-    stabilizer=Stabilizer.STANDARD,
+    stabilizer=Stabilizer.NORMAL,
     vertical=False,
     front_silk=True,
     show_value=True,
@@ -65,20 +69,21 @@ def make_mx_switch(
     mod = Footprint(name)
     mod.description = desc
 
-    add_mx_reference(mod, switch=switch, offset=switch_offset)
-    add_mx_value(mod, offset=switch_offset, show_value=show_value)
+    transform = Transform(translate=switch_offset * UNIT_SIZE, rotate=switch_angle)
+
+    add_mx_reference(mod, switch=switch, transform=transform)
+    add_mx_value(mod, show_value=show_value, transform=transform)
     add_mx_switch(
         mod,
         switch=switch,
         mount=mount,
         front_silk=front_silk,
-        offset=switch_offset,
-        angle=switch_angle,
+        transform=transform,
     )
     add_mx_stabilizer(mod, units=units, vertical=vertical, stabilizer=stabilizer)
-    add_mx_led(mod, switch=switch, led=led, offset=switch_offset, angle=switch_angle)
+    add_mx_led(mod, switch=switch, led=led, transform=transform)
     add_mx_keycap_outline(mod, units=units, vertical=vertical)
-    add_mx_3d_model(mod, switch=switch, offset=switch_offset, angle=switch_angle)
+    add_mx_3d_model(mod, switch=switch, transform=transform)
 
     return mod
 
@@ -87,13 +92,21 @@ def make_mx_iso_enter(
     switch=Switch.SOLDER,
     mount=Mount.PCB,
     led=Led.NONE,
-    stabilizer=Stabilizer.STANDARD,
+    stabilizer=Stabilizer.NORMAL,
     front_silk=True,
     show_value=True,
     switch_angle=0,
 ) -> Footprint:
     """
     Generate a footprint for a Cherry MX ISO enter switch.
+
+    :param switch: Switch connection type.
+    :param mount: Switch mounting style.
+    :param led: Switch LED type.
+    :param stabilizer: Stabilizer type. Defaults to NORTH for sizes >= 2U.
+    :param front_silk: Add a rectangle for the switch on the front silkscreen layer.
+    :param show_value: Display symbol value on the back silkscreen layer.
+    :param switch_angle: Rotation of the switch in degrees CW. Must be a multiple of 90.
     """
     name, desc = _get_footprint_name_desc(
         size="iso",
@@ -107,20 +120,22 @@ def make_mx_iso_enter(
     mod = Footprint(name)
     mod.description = desc
 
-    add_mx_reference(mod, switch=switch)
-    add_mx_value(mod, show_value=show_value)
+    transform = Transform(rotate=switch_angle)
+
+    add_mx_reference(mod, switch=switch, transform=transform)
+    add_mx_value(mod, show_value=show_value, transform=transform)
     add_mx_switch(
-        mod, switch=switch, mount=mount, front_silk=front_silk, angle=switch_angle
+        mod, switch=switch, mount=mount, front_silk=front_silk, transform=transform
     )
     add_mx_stabilizer(mod, units=2.25, vertical=True, stabilizer=stabilizer)
-    add_mx_led(mod, switch=switch, led=led, angle=switch_angle)
+    add_mx_led(mod, switch=switch, led=led, transform=transform)
     add_mx_iso_enter_keycap_outline(mod)
-    add_mx_3d_model(mod, switch=switch, angle=switch_angle)
+    add_mx_3d_model(mod, switch=switch, transform=transform)
 
     return mod
 
 
-def make_mx_led_only(led=Led.STANDARD):
+def make_mx_led_only(led=Led.NORMAl):
     pass
 
 
@@ -141,78 +156,75 @@ def get_mx_stabilizer_width(units: Number) -> float:
     return round_to((units - 1) * UNIT_SIZE, 0.05)
 
 
-def add_mx_reference(
-    mod: Footprint, switch=Switch.SOLDER, offset: Vec2 = Vector2D(0, 0)
-):
+def add_mx_reference(mod: Footprint, switch=Switch.SOLDER, transform=IDENTITY):
+    """Add a reference label for a switch footprint"""
     REF_POS = Vector2D(0, 3)
 
-    offset = Vector2D(offset)
-
-    layer = "Dwgs.User"
+    layer = USER_DRAWING
     mirror = False
 
-    match switch:
-        case Switch.HOTSWAP | Switch.HOTSWAP_ANTISHEAR:
-            layer = "B.Fab"
-            mirror = True
+    if switch == Switch.HOTSWAP or switch == Switch.HOTSWAP_ANTISHEAR:
+        layer = B_FAB
+        mirror = True
 
-    center = offset * UNIT_SIZE
-    ref_pos = center + REF_POS
-
-    mod.append(
-        Text(
-            type=Text.TYPE_REFERENCE,
-            text="REF**",
-            at=ref_pos,
-            mirror=mirror,
-            layer=layer,
-        )
+    add_text(
+        mod,
+        type=Text.TYPE_REFERENCE,
+        text="REF**",
+        at=REF_POS,
+        mirror=mirror,
+        layer=layer,
+        transform=transform.with_rotation(0),
     )
 
 
-def add_mx_value(mod: Footprint, offset: Vec2 = Vector2D(0, 0), show_value=True):
+def add_mx_value(mod: Footprint, show_value=True, bottom=True, transform=IDENTITY):
+    """Add a value label for a switch footprint"""
     VALUE_POS = Vector2D(0, -8)
     VALUE_SIZE = Vector2D(1.27, 1.27)
 
-    offset = Vector2D(offset)
-    center = offset * UNIT_SIZE
-    value_pos = center + VALUE_POS
+    mirror = bottom
+    layer = B_SILK if bottom else F_SILK
 
-    mod.append(
-        Text(
-            type=Text.TYPE_VALUE,
-            text="Val**",
-            at=value_pos,
-            mirror=True,
-            layer="B.SilkS",
-            size=VALUE_SIZE,
-            hide=not show_value,
-        )
+    add_text(
+        mod,
+        type=Text.TYPE_VALUE,
+        text="Val**",
+        at=VALUE_POS,
+        size=VALUE_SIZE,
+        layer=layer,
+        mirror=mirror,
+        transform=transform.with_rotation(0),
+        hide=not show_value,
     )
 
 
 def add_mx_keycap_outline(mod: Footprint, units: Number, vertical: bool):
-    LAYER = "Dwgs.User"
+    """Add a switch keycap outline to a footprint as a user drawing"""
+    LAYER = USER_DRAWING
+    STROKE = 0.15
     TEXT_POS = Vector2D(0, 8)
 
     if vertical:
-        key_size = Vector2D(1, units) * UNIT_SIZE
+        key_size = Vector2D(1, units)
     else:
-        key_size = Vector2D(units, 1) * UNIT_SIZE
+        key_size = Vector2D(units, 1)
 
-    mod.append(make_rect(at=Vector2D(0, 0), size=key_size, width=0.15, layer=LAYER))
-    mod.append(
-        Text(
-            type=Text.TYPE_USER,
-            text=f"{units:g}U",
-            at=TEXT_POS,
-            layer=LAYER,
-        )
+    add_rect(
+        mod,
+        center=(0, 0),
+        size=key_size,
+        layer=LAYER,
+        stroke=STROKE,
+        transform=UNIT_SCALE,
     )
+    add_text(mod, type=Text.TYPE_USER, text=f"{units:g}U", at=TEXT_POS, layer=LAYER)
 
 
 def add_mx_iso_enter_keycap_outline(mod: Footprint):
-    LAYER = "Dwgs.User"
+    """Add an ISO Enter keycap outline to a footprint as a user drawing"""
+    LAYER = USER_DRAWING
+    STROKE = 0.15
     TEXT_POS = Vector2D(0, 8)
     POINTS = [
         (0.625, 1),
@@ -224,19 +236,8 @@ def add_mx_iso_enter_keycap_outline(mod: Footprint):
         (0.625, 1),
     ]
 
-    points = [Vector2D(p) * UNIT_SIZE for p in POINTS]
-
-    for start, end in pairwise(points):
-        mod.append(Line(start=start, end=end, width=0.15, layer=LAYER))
-
-    mod.append(
-        Text(
-            type=Text.TYPE_USER,
-            text="ISO",
-            at=TEXT_POS,
-            layer=LAYER,
-        )
-    )
+    add_polygon(mod, POINTS, layer=LAYER, stroke=STROKE, transform=UNIT_SCALE)
+    add_text(mod, type=Text.TYPE_USER, text="ISO", at=TEXT_POS, layer=LAYER)
 
 
 def add_mx_switch(
@@ -244,61 +245,69 @@ def add_mx_switch(
     switch=Switch.SOLDER,
     mount=Mount.PCB,
     front_silk=True,
-    offset: Vec2 = Vector2D(0, 0),
-    angle=0,
+    transform=IDENTITY,
 ):
+    """Add an MX switch to a footprint"""
     if switch == Switch.NONE:
         return
 
     F_FAB_SIZE = 12.7
-    F_FAB_WIDTH = 0.1
+    F_FAB_STROKE = 0.1
     F_COURTYARD_SIZE = 13.2
-    F_COURTYARD_WIDTH = 0.05
+    F_COURTYARD_STROKE = 0.05
     F_SILK_SIZE = 13.87
-    F_SILK_WIDTH = 0.12
+    F_SILK_STROKE = 0.12
     CENTER_HOLE_SIZE = 4
 
-    offset = Vector2D(offset)
-    origin = offset * UNIT_SIZE
-
     # Front fab
-    mod.append(make_rect(at=origin, size=F_FAB_SIZE, width=F_FAB_WIDTH, layer="F.Fab"))
+    add_square(
+        mod,
+        center=(0, 0),
+        size=F_FAB_SIZE,
+        stroke=F_FAB_STROKE,
+        layer=F_FAB,
+        transform=transform,
+    )
 
     # Front courtyard
-    mod.append(
-        make_rect(
-            at=origin,
-            size=F_COURTYARD_SIZE,
-            width=F_COURTYARD_WIDTH,
-            layer="F.CrtYd",
-        )
+    add_square(
+        mod,
+        center=(0, 0),
+        size=F_COURTYARD_SIZE,
+        stroke=F_COURTYARD_STROKE,
+        layer=F_COURT,
+        transform=transform,
     )
 
     # Front silkscreen
     if front_silk:
-        mod.append(
-            make_rect(at=origin, size=F_SILK_SIZE, width=F_SILK_WIDTH, layer="F.SilkS")
+        add_square(
+            mod,
+            center=(0, 0),
+            size=F_SILK_SIZE,
+            stroke=F_SILK_STROKE,
+            layer=F_SILK,
+            transform=transform,
         )
 
-    # Pads
-    mod.append(make_npth(at=origin, size=CENTER_HOLE_SIZE))
+    add_npth(mod, at=(0, 0), size=CENTER_HOLE_SIZE, transform=transform)
 
     if mount == Mount.PCB:
-        _add_pcb_mount(mod, origin, angle)
+        _add_pcb_mount(mod, transform)
 
     match switch:
         case Switch.SOLDER:
-            _add_solder_pads(mod, origin, angle)
+            _add_solder_pads(mod, transform)
         case Switch.HOTSWAP:
-            _add_hotswap_socket(mod, origin, angle)
+            _add_hotswap_socket(mod, transform)
         case Switch.HOTSWAP_ANTISHEAR:
-            _add_hotswap_socket_antishear(mod, origin, angle)
+            _add_hotswap_socket_antishear(mod, transform)
 
 
 def add_mx_stabilizer(
-    mod: Footprint, units: Number = 1, stabilizer=Stabilizer.STANDARD, vertical=False
+    mod: Footprint, units: Number = 1, stabilizer=Stabilizer.NORMAL, vertical=False
 ):
-
+    """Add a Cherry stabilizer to a footprint"""
     if stabilizer == stabilizer.NONE:
         return
 
@@ -311,32 +320,29 @@ def add_mx_stabilizer(
     TOP_Y = -7
     BOTTOM_Y = TOP_Y + 15.24
 
-    y_scale = 1 if stabilizer == Stabilizer.STANDARD else -1
+    transform = IDENTITY.with_rotation(-90 if vertical else 0)
+    if stabilizer == Stabilizer.REVERSE:
+        transform = transform.with_scale((1, -1))
 
-    top_left = Vector2D(-width / 2, TOP_Y * y_scale)
-    top_right = Vector2D(width / 2, TOP_Y * y_scale)
+    top_left = Vector2D(-width / 2, TOP_Y)
+    top_right = Vector2D(width / 2, TOP_Y)
 
-    bottom_left = Vector2D(-width / 2, BOTTOM_Y * y_scale)
-    bottom_right = Vector2D(width / 2, BOTTOM_Y * y_scale)
+    bottom_left = Vector2D(-width / 2, BOTTOM_Y)
+    bottom_right = Vector2D(width / 2, BOTTOM_Y)
 
-    if vertical:
-        top_left, top_right, bottom_left, bottom_right = [
-            x.rotate(-90) for x in (top_left, top_right, bottom_left, bottom_right)
-        ]
-
-    mod.append(make_npth(at=top_left, size=TOP_SIZE))
-    mod.append(make_npth(at=top_right, size=TOP_SIZE))
-    mod.append(make_npth(at=bottom_left, size=BOTTOM_SIZE))
-    mod.append(make_npth(at=bottom_right, size=BOTTOM_SIZE))
+    add_npth(mod, at=top_left, size=TOP_SIZE, transform=transform)
+    add_npth(mod, at=top_right, size=TOP_SIZE, transform=transform)
+    add_npth(mod, at=bottom_left, size=BOTTOM_SIZE, transform=transform)
+    add_npth(mod, at=bottom_right, size=BOTTOM_SIZE, transform=transform)
 
 
 def add_mx_led(
     mod: Footprint,
     switch=Switch.NONE,
-    led=Led.STANDARD,
-    offset: Vec2 = Vector2D(0, 0),
-    angle=0,
+    led=Led.NORMAl,
+    transform=IDENTITY,
 ):
+    """Add an LED to a footprint"""
     if led == Led.NONE:
         return
 
@@ -345,51 +351,53 @@ def add_mx_led(
     PAD_SIZE = Vector2D(1.905, 1.905)
     PAD_DRILL = 1.04
 
-    number_offset = 0 if switch == Switch.NONE else 2
-    scale = Vector2D(1 if led == Led.STANDARD else -1, 1)
+    if led == Led.REVERSE:
+        transform = transform.with_scale((-1, 1))
 
-    offset = Vector2D(offset)
-    origin = offset * UNIT_SIZE
+    switch_pins = 0 if switch == Switch.NONE else 2
 
-    def make_pad(number: int, shape: str, at: Vector2D):
-        return Pad(
-            number=number_offset + number,
-            type=Pad.TYPE_THT,
-            shape=shape,
-            layers=Pad.LAYERS_THT,
-            at=origin + rotate(at * scale, angle),
+    def add_pad(number: int, shape: str, at: Vec2):
+        add_tht_pad(
+            mod,
+            switch_pins + number,
+            at=at,
             size=PAD_SIZE,
             drill=PAD_DRILL,
+            shape=shape,
+            transform=transform,
         )
 
-    mod.append(make_pad(1, Pad.SHAPE_CIRCLE, Vector2D(-PAD_X, PAD_Y)))
-    mod.append(make_pad(2, Pad.SHAPE_RECT, Vector2D(PAD_X, PAD_Y)))
+    add_pad(1, Pad.SHAPE_CIRCLE, (-PAD_X, PAD_Y))
+    add_pad(2, Pad.SHAPE_RECT, (PAD_X, PAD_Y))
 
 
-def add_mx_3d_model(
-    mod: Footprint, switch=Switch.SOLDER, offset: Vec2 = Vector2D(0, 0), angle=0
-):
-    HOTSWAP_MODEL = f"{MODEL_PATH_PLACEHOLDER}.3dshapes/CPG151101S11.wrl"
-    HOTSWAP_OFFSET = Vector3D(0, 0, -1.4868)
-    HOTSWAP_SCALE = Vector3D(0.3937, 0.3937, 0.3937)
-
-    offset = Vector2D(offset)
-    center = Vector3D(offset.x, offset.y, 0) * UNIT_SIZE
-
-    # For some reason "at" is in inches, while "offset" is in mm, but KicadModTree
-    # doesn't let me set an offset.
-    hotswap_pos = (center + HOTSWAP_OFFSET) / 25.4
-
+def add_mx_3d_model(mod: Footprint, switch=Switch.SOLDER, transform=IDENTITY):
+    """Add 3D models for mounting hardware to a footprint"""
     match switch:
         case Switch.HOTSWAP | Switch.HOTSWAP_ANTISHEAR:
-            mod.append(
-                Model(
-                    filename=HOTSWAP_MODEL,
-                    at=hotswap_pos,
-                    scale=HOTSWAP_SCALE,
-                    angle=Vector3D(0, 0, angle),
-                )
-            )
+            _add_kailh_hotswap_model(mod, transform)
+
+
+def _add_kailh_hotswap_model(mod: Footprint, transform: Transform):
+    HOTSWAP_MODEL = f"{LIB_PATH_PLACEHOLDER}/3dshapes/CPG151101S11.wrl"
+    HOTSWAP_POS = Vector3D(0, 0, -1.4868)
+    HOTSWAP_SCALE = to_vec3(0.3937)
+
+    angle = Vector3D(0, 0, transform.rotate)
+    center = Vector3D(transform.translate) + HOTSWAP_POS
+
+    # For some reason "at" is in inches, while "offset" is in mm,
+    # but KicadModTree only lets me set "at" and not "offset".
+    center = center / 25.4
+
+    mod.append(
+        Model(
+            filename=HOTSWAP_MODEL,
+            at=center,
+            scale=HOTSWAP_SCALE,
+            angle=angle,
+        )
+    )
 
 
 _SWITCH_NAME = {
@@ -418,25 +426,25 @@ _MOUNT_DESC = {
 
 _LED_NAME = {
     Led.NONE: [],
-    Led.STANDARD: ["LED"],
+    Led.NORMAl: ["LED"],
     Led.REVERSE: ["ReversedLED"],
 }  # type: Dict[Switch, List[str]]
 
 _LED_DESC = {
     Led.NONE: [],
-    Led.STANDARD: ["LED"],
+    Led.NORMAl: ["LED"],
     Led.REVERSE: ["reverse polarity LED"],
 }  # type: Dict[Switch, List[str]]
 
 _STAB_NAME = {
     Stabilizer.NONE: ["NoStabilizers"],
-    Stabilizer.STANDARD: [],
+    Stabilizer.NORMAL: [],
     Stabilizer.REVERSE: ["ReversedStabilizers"],
 }  # type: Dict[Switch, List[str]]
 
 _STAB_DESC = {
     Stabilizer.NONE: ["no stabilizers"],
-    Stabilizer.STANDARD: [],
+    Stabilizer.NORMAL: [],
     Stabilizer.REVERSE: ["reversed stabilizers"],
 }  # type: Dict[Switch, List[str]]
 
@@ -446,7 +454,7 @@ def _get_footprint_name_desc(
     switch=Switch.SOLDER,
     mount=Mount.PCB,
     led=Led.NONE,
-    stabilizer=Stabilizer.STANDARD,
+    stabilizer=Stabilizer.NORMAL,
     vertical=False,
     switch_offset=Vector2D(0, 0),
     switch_angle=0,
@@ -518,72 +526,45 @@ def _get_angle_desc(angle: int) -> List[str]:
     return [f"switch rotated {normalize_angle(angle)}"]
 
 
-def _add_pcb_mount(mod: Footprint, origin: Vector2D, angle: int):
+def _add_pcb_mount(mod: Footprint, xfrm: Transform):
     MOUNT1_POS = Vector2D(5.08, 0)
     MOUNT2_POS = Vector2D(-5.08, 0)
     MOUNT_SIZE = 1.7
 
-    def make_mount(at: Vector2D):
-        return make_npth(at=origin + rotate(at, angle), size=MOUNT_SIZE)
-
-    mod.append(make_mount(at=MOUNT1_POS))
-    mod.append(make_mount(at=MOUNT2_POS))
+    add_npth(mod, MOUNT1_POS, size=MOUNT_SIZE, transform=xfrm)
+    add_npth(mod, MOUNT2_POS, size=MOUNT_SIZE, transform=xfrm)
 
 
-def _add_solder_pads(mod: Footprint, origin: Vector2D, angle: int):
+def _add_solder_pads(mod: Footprint, transform: Transform):
     PAD1_POS = Vector2D(2.54, -5.08)
     PAD2_POS = Vector2D(-3.81, -2.54)
-    PAD_SIZE = 2.2
-    HOLE_SIZE = 1.5
+    SIZE = 2.2
+    DRILL = 1.5
 
-    def make_pad(number: int, at=Vector2D):
-        return Pad(
-            number=number,
-            type=Pad.TYPE_THT,
-            shape=Pad.SHAPE_CIRCLE,
-            layers=Pad.LAYERS_THT,
-            at=origin + rotate(at, angle),
-            size=PAD_SIZE,
-            drill=HOLE_SIZE,
-        )
-
-    mod.append(make_pad(number=1, at=PAD1_POS))
-    mod.append(make_pad(number=2, at=PAD2_POS))
+    add_tht_pad(mod, 1, PAD1_POS, size=SIZE, drill=DRILL, transform=transform)
+    add_tht_pad(mod, 2, PAD2_POS, size=SIZE, drill=DRILL, transform=transform)
 
 
-def _add_hotswap_socket(mod: Footprint, origin: Vector2D, angle: int):
-    PAD_SIZE = Vector2D(2.55, 2.5)
+def _add_hotswap_socket(mod: Footprint, xfrm: Transform):
     PAD1_POS = Vector2D(-7.085, -2.54)
     PAD2_POS = Vector2D(5.842, -5.08)
+    PAD_SIZE = Vector2D(2.55, 2.5)
     PAD_LAYERS = ["B.Cu", "B.Mask", "B.Paste"]
 
     MOUNT1_POS = Vector2D(-3.81, -2.54)
     MOUNT2_POS = Vector2D(2.54, -5.08)
     MOUNT_SIZE = 3
 
-    def make_pad(number: int, at: Vector2D):
-        return Pad(
-            number=number,
-            type=Pad.TYPE_SMT,
-            shape=Pad.SHAPE_RECT,
-            layers=PAD_LAYERS,
-            at=origin + rotate(at, angle),
-            size=rotate_rect(PAD_SIZE, angle),
-        )
+    add_smt_pad(mod, 1, PAD1_POS, size=PAD_SIZE, layers=PAD_LAYERS, transform=xfrm)
+    add_smt_pad(mod, 1, PAD2_POS, size=PAD_SIZE, layers=PAD_LAYERS, transform=xfrm)
 
-    def make_mount(at: Vector2D):
-        return make_npth(at=origin + rotate(at, angle), size=MOUNT_SIZE)
+    add_npth(mod, MOUNT1_POS, size=MOUNT_SIZE, transform=xfrm)
+    add_npth(mod, MOUNT2_POS, size=MOUNT_SIZE, transform=xfrm)
 
-    mod.append(make_pad(number=1, at=PAD1_POS))
-    mod.append(make_pad(number=2, at=PAD2_POS))
-
-    mod.append(make_mount(at=MOUNT1_POS))
-    mod.append(make_mount(at=MOUNT2_POS))
-
-    _add_hotswap_courtyard(mod, origin, angle)
+    _add_hotswap_courtyard(mod, xfrm)
 
 
-def _add_hotswap_socket_antishear(mod: Footprint, origin: Vector2D, angle: int):
+def _add_hotswap_socket_antishear(mod: Footprint, xfrm: Transform):
     PAD1_POS = Vector2D(-7.085, -2.54)
     PAD2_POS = Vector2D(5.842, -5.08)
     PAD_SIZE = Vector2D(4.5, 2.5)
@@ -606,118 +587,44 @@ def _add_hotswap_socket_antishear(mod: Footprint, origin: Vector2D, angle: int):
     ANCHOR_SIZE = 0.8
     ANCHOR_DRILL = 0.4
 
-    def make_pad(number: int, at: Vector2D):
-        return Pad(
-            number=number,
-            type=Pad.TYPE_SMT,
-            shape=Pad.SHAPE_RECT,
-            layers=PAD_LAYERS,
-            at=origin + rotate(at, angle),
-            size=rotate_rect(PAD_SIZE, angle),
-        )
+    add_smt_pad(mod, 1, PAD1_POS, PAD_SIZE, layers=PAD_LAYERS, transform=xfrm)
+    add_smt_pad(mod, 2, PAD2_POS, PAD_SIZE, layers=PAD_LAYERS, transform=xfrm)
 
-    def make_paste(number: int, at: Vector2D):
-        return Pad(
-            number=number,
-            type=Pad.TYPE_SMT,
-            shape=Pad.SHAPE_RECT,
-            layers=PASTE_LAYERS,
-            at=origin + rotate(at, angle),
-            size=rotate_rect(PASTE_SIZE, angle),
-        )
+    add_smt_pad(mod, 1, PASTE1_POS, PASTE_SIZE, layers=PASTE_LAYERS, transform=xfrm)
+    add_smt_pad(mod, 1, PASTE2_POS, PASTE_SIZE, layers=PASTE_LAYERS, transform=xfrm)
 
-    def make_anchor(number: int, at: Vector2D):
-        return Pad(
-            number=number,
-            type=Pad.TYPE_THT,
-            shape=Pad.SHAPE_CIRCLE,
-            layers=Pad.LAYERS_THT,
-            at=origin + rotate(at, angle),
-            size=ANCHOR_SIZE,
-            drill=ANCHOR_DRILL,
-        )
+    add_tht_pad(mod, 1, MOUNT1_POS, MOUNT_SIZE, MOUNT_DRILL, transform=xfrm)
+    add_tht_pad(mod, 2, MOUNT2_POS, MOUNT_SIZE, MOUNT_DRILL, transform=xfrm)
 
-    def make_mount(number: int, at: Vector2D):
-        return Pad(
-            number=number,
-            type=Pad.TYPE_THT,
-            shape=Pad.SHAPE_CIRCLE,
-            layers=Pad.LAYERS_THT,
-            at=origin + rotate(at, angle),
-            size=MOUNT_SIZE,
-            drill=MOUNT_DRILL,
-        )
+    add_tht_pad(mod, 1, ANCHOR11_POS, ANCHOR_SIZE, ANCHOR_DRILL, transform=xfrm)
+    add_tht_pad(mod, 1, ANCHOR12_POS, ANCHOR_SIZE, ANCHOR_DRILL, transform=xfrm)
+    add_tht_pad(mod, 2, ANCHOR21_POS, ANCHOR_SIZE, ANCHOR_DRILL, transform=xfrm)
+    add_tht_pad(mod, 2, ANCHOR22_POS, ANCHOR_SIZE, ANCHOR_DRILL, transform=xfrm)
 
-    mod.append(make_pad(number=1, at=PAD1_POS))
-    mod.append(make_pad(number=2, at=PAD2_POS))
-
-    mod.append(make_paste(number=1, at=PASTE1_POS))
-    mod.append(make_paste(number=2, at=PASTE2_POS))
-
-    mod.append(make_anchor(number=1, at=ANCHOR11_POS))
-    mod.append(make_anchor(number=1, at=ANCHOR12_POS))
-    mod.append(make_anchor(number=2, at=ANCHOR21_POS))
-    mod.append(make_anchor(number=2, at=ANCHOR22_POS))
-
-    mod.append(make_mount(number=1, at=MOUNT1_POS))
-    mod.append(make_mount(number=2, at=MOUNT2_POS))
-
-    _add_hotswap_courtyard(mod, origin, angle)
+    _add_hotswap_courtyard(mod, xfrm)
 
 
-def _add_hotswap_courtyard(mod: Footprint, origin: Vector2D, angle: int):
+def _add_hotswap_courtyard(mod: Footprint, xfrm: Transform):
     MOUNT1_POS = Vector2D(-3.81, -2.54)
     MOUNT2_POS = Vector2D(2.54, -5.08)
-    MOUNT_R = 1.524
-    WIDTH = 0.127
+    RADIUS = 1.524
+    STROKE = 0.127
     LAYER = "B.CrtYd"
 
     POINTS = [
-        (-0.4, -2.6),  # line
-        (5.3, -2.6),  # line
-        (5.3, -7),  # line
-        (-4, -7),  # arc start
-        (-4, -4.5),  # arc center
-        (-6.5, -4.5),  # line
-        (-6.5, -0.6),  # line
-        (-2.4, -0.6),  # arc start
-        (-0.4, -0.6),  # arc center
+        (-0.4, -2.6),
+        (5.3, -2.6),
+        (5.3, -7),
+        (-4, -7),
+        ArcCenter(-4, -4.5),
+        (-6.5, -4.5),
+        (-6.5, -0.6),
+        (-2.4, -0.6),
+        ArcCenter(-0.4, -0.6),
+        (-0.4, -2.6),
     ]
 
-    p = [origin + x for x in POINTS]  # type: List[Vector2D]
+    add_circle(mod, MOUNT1_POS, RADIUS, layer=LAYER, stroke=STROKE, transform=xfrm)
+    add_circle(mod, MOUNT2_POS, RADIUS, layer=LAYER, stroke=STROKE, transform=xfrm)
 
-    def make_mount(center: Vector2D):
-        return Circle(
-            center=origin + rotate(center, angle),
-            radius=MOUNT_R,
-            layer=LAYER,
-            width=WIDTH,
-        )
-
-    def make_line(start: Vector2D, end: Vector2D):
-        return Line(
-            start=origin + rotate(start, angle),
-            end=origin + rotate(end, angle),
-            layer=LAYER,
-            width=WIDTH,
-        )
-
-    def make_arc(start: Vector2D, center: Vector2D, end: Vector2D):
-        return Arc(
-            start=origin + rotate(start, angle),
-            center=origin + rotate(center, angle),
-            end=origin + rotate(end, angle),
-            layer=LAYER,
-            width=WIDTH,
-        )
-
-    mod.append(make_mount(center=MOUNT1_POS))
-    mod.append(make_mount(center=MOUNT2_POS))
-
-    mod.append(make_line(start=p[0], end=p[1]))
-    mod.append(make_line(start=p[1], end=p[2]))
-    mod.append(make_line(start=p[2], end=p[3]))
-    mod.append(make_arc(start=p[3], center=p[4], end=p[5]))
-    mod.append(make_line(start=p[5], end=p[6]))
-    mod.append(make_line(start=p[6], end=p[7]))
-    mod.append(make_arc(start=p[7], center=p[8], end=p[0]))
+    add_curve(mod, POINTS, layer=LAYER, stroke=STROKE, transform=xfrm)

@@ -28,7 +28,7 @@ class Mount(Enum):
 class Led(Enum):
     NONE = 0
     "No LED"
-    STANDARD = 1
+    NORMAl = 1
     "Single color LED"
     REVERSE = 2
     "Single color LED, reversed polarity"
@@ -37,7 +37,7 @@ class Led(Enum):
 class Stabilizer(Enum):
     NONE = 0
     "No stabilizer"
-    STANDARD = 1
+    NORMAL = 1
     "Cherry stabilizer, North-facing wire"
     REVERSE = 2
     "Cherry stabilizer, South-facing wire"
