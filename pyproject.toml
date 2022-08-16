@@ -1,0 +1,51 @@
+[project]
+name = "kicad-keyboard-footprint-generator"
+description = "KiCad footprint generator for keyboard parts"
+authors = [
+    {name = "Joel Spadin", email = "joelspadin@gmail.com"},
+]
+readme = "README.md"
+license = {file = "LICENSE.md"}
+requires-python = ">=3.10"
+dynamic = ["version"]
+
+dependencies = [
+    "KicadModTree",
+    "typing_extensions"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pre-commit",
+    "pylint",
+]
+
+[project.urls]
+repository = "https://github.com/joelspadin/kicad-keyboard-footprint-generator"
+
+[build-system]
+requires = ["setuptools>=43.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["kicad_keyboard_footprints"]
+
+[tool.setuptools.dynamic]
+version = {attr = "kicad_keyboard_footprints.__version__"}
+
+[tool.pylint.MASTER]
+# Make sure the project root is in sys.path so pylint can import all the modules
+init-hook="from pylint.config import find_default_config_files; import os, sys; sys.path.append(os.path.dirname(next(find_default_config_files())))"
+
+[tool.pylint.'MESSAGES CONTROL']
+disable="""
+    too-many-arguments,
+"""
+
+[tool.pylint.BASIC]
+good-names="x,y"
+# Don't complain about constants in function scope
+variable-rgx="[A-Za-z_][A-Za-z0-9_]{2,30}$"
+
+[tool.pylint.FORMAT]
+max-line-length = 88

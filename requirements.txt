@@ -1,2 +1,0 @@
-KicadModTree
-typing_extensions

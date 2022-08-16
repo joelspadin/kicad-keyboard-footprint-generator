@@ -1,3 +1,7 @@
+"""
+Cherry MX footprint generators
+"""
+
 from typing import Dict, List, Literal
 from KicadModTree import Footprint, Model, Pad, Vector2D, Vector3D, Text
 from KicadModTree.util.paramUtil import round_to
@@ -135,13 +139,10 @@ def make_mx_iso_enter(
     return mod
 
 
-def make_mx_led_only(led=Led.NORMAl):
-    pass
-
-
 def get_mx_stabilizer_width(units: Number) -> float:
     """
-    Get the horizontal spacing in millimeters between the sides of a Cherry MX stabilizer.
+    Get the horizontal spacing in millimeters between the sides of a Cherry MX
+    stabilizer.
 
     Returns 0 if no stabilizer size is defined for the key size.
     """
@@ -163,15 +164,15 @@ def add_mx_reference(mod: Footprint, switch=Switch.SOLDER, transform=IDENTITY):
     layer = USER_DRAWING
     mirror = False
 
-    if switch == Switch.HOTSWAP or switch == Switch.HOTSWAP_ANTISHEAR:
+    if switch in (Switch.HOTSWAP, Switch.HOTSWAP_ANTISHEAR):
         layer = B_FAB
         mirror = True
 
     add_text(
         mod,
-        type=Text.TYPE_REFERENCE,
+        kind=Text.TYPE_REFERENCE,
         text="REF**",
-        at=REF_POS,
+        center=REF_POS,
         mirror=mirror,
         layer=layer,
         transform=transform.with_rotation(0),
@@ -188,9 +189,9 @@ def add_mx_value(mod: Footprint, show_value=True, bottom=True, transform=IDENTIT
 
     add_text(
         mod,
-        type=Text.TYPE_VALUE,
+        kind=Text.TYPE_VALUE,
         text="Val**",
-        at=VALUE_POS,
+        center=VALUE_POS,
         size=VALUE_SIZE,
         layer=layer,
         mirror=mirror,
@@ -218,7 +219,7 @@ def add_mx_keycap_outline(mod: Footprint, units: Number, vertical: bool):
         stroke=STROKE,
         transform=UNIT_SCALE,
     )
-    add_text(mod, type=Text.TYPE_USER, text=f"{units:g}U", at=TEXT_POS, layer=LAYER)
+    add_text(mod, kind=Text.TYPE_USER, text=f"{units:g}U", center=TEXT_POS, layer=LAYER)
 
 
 def add_mx_iso_enter_keycap_outline(mod: Footprint):
@@ -237,7 +238,7 @@ def add_mx_iso_enter_keycap_outline(mod: Footprint):
     ]
 
     add_polygon(mod, POINTS, layer=LAYER, stroke=STROKE, transform=UNIT_SCALE)
-    add_text(mod, type=Text.TYPE_USER, text="ISO", at=TEXT_POS, layer=LAYER)
+    add_text(mod, kind=Text.TYPE_USER, text="ISO", center=TEXT_POS, layer=LAYER)
 
 
 def add_mx_switch(
@@ -290,7 +291,7 @@ def add_mx_switch(
             transform=transform,
         )
 
-    add_npth(mod, at=(0, 0), size=CENTER_HOLE_SIZE, transform=transform)
+    add_npth(mod, center=(0, 0), size=CENTER_HOLE_SIZE, transform=transform)
 
     if mount == Mount.PCB:
         _add_pcb_mount(mod, transform)
@@ -330,16 +331,16 @@ def add_mx_stabilizer(
     bottom_left = Vector2D(-width / 2, BOTTOM_Y)
     bottom_right = Vector2D(width / 2, BOTTOM_Y)
 
-    add_npth(mod, at=top_left, size=TOP_SIZE, transform=transform)
-    add_npth(mod, at=top_right, size=TOP_SIZE, transform=transform)
-    add_npth(mod, at=bottom_left, size=BOTTOM_SIZE, transform=transform)
-    add_npth(mod, at=bottom_right, size=BOTTOM_SIZE, transform=transform)
+    add_npth(mod, center=top_left, size=TOP_SIZE, transform=transform)
+    add_npth(mod, center=top_right, size=TOP_SIZE, transform=transform)
+    add_npth(mod, center=bottom_left, size=BOTTOM_SIZE, transform=transform)
+    add_npth(mod, center=bottom_right, size=BOTTOM_SIZE, transform=transform)
 
 
 def add_mx_led(
     mod: Footprint,
     switch=Switch.NONE,
-    led=Led.NORMAl,
+    led=Led.NORMAL,
     transform=IDENTITY,
 ):
     """Add an LED to a footprint"""
@@ -356,11 +357,11 @@ def add_mx_led(
 
     switch_pins = 0 if switch == Switch.NONE else 2
 
-    def add_pad(number: int, shape: str, at: Vec2):
+    def add_pad(number: int, shape: str, center: Vec2):
         add_tht_pad(
             mod,
             switch_pins + number,
-            at=at,
+            center=center,
             size=PAD_SIZE,
             drill=PAD_DRILL,
             shape=shape,
@@ -426,13 +427,13 @@ _MOUNT_DESC = {
 
 _LED_NAME = {
     Led.NONE: [],
-    Led.NORMAl: ["LED"],
+    Led.NORMAL: ["LED"],
     Led.REVERSE: ["ReversedLED"],
 }  # type: Dict[Switch, List[str]]
 
 _LED_DESC = {
     Led.NONE: [],
-    Led.NORMAl: ["LED"],
+    Led.NORMAL: ["LED"],
     Led.REVERSE: ["reverse polarity LED"],
 }  # type: Dict[Switch, List[str]]
 
@@ -564,7 +565,9 @@ def _add_hotswap_socket(mod: Footprint, xfrm: Transform):
     _add_hotswap_courtyard(mod, xfrm)
 
 
-def _add_hotswap_socket_antishear(mod: Footprint, xfrm: Transform):
+def _add_hotswap_socket_antishear(
+    mod: Footprint, xfrm: Transform
+):  # pylint: disable=too-many-locals
     PAD1_POS = Vector2D(-7.085, -2.54)
     PAD2_POS = Vector2D(5.842, -5.08)
     PAD_SIZE = Vector2D(4.5, 2.5)

@@ -1,3 +1,7 @@
+"""
+Layer name constants
+"""
+
 F_COPPER = "F.Cu"
 B_COPPER = "B.Cu"
 F_COURT = "F.CrtYd"

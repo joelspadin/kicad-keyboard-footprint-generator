@@ -1,13 +1,19 @@
+"""
+Common types for footprint generators.
+"""
+
 from enum import Enum
-from typing import Tuple
+from typing import Tuple, TypeAlias
 from KicadModTree import Vector2D
 
 
-Number = int | float
-Vec2 = Vector2D | Tuple[Number, Number] | list[Number]
+Number: TypeAlias = int | float
+Vec2: TypeAlias = Vector2D | Tuple[Number, Number] | list[Number]
 
 
 class Switch(Enum):
+    """Type of switch connection"""
+
     NONE = 0
     "No switch in footprint"
     SOLDER = 1
@@ -19,6 +25,8 @@ class Switch(Enum):
 
 
 class Mount(Enum):
+    """Type of switch mounting"""
+
     PCB = 0
     "PCB mount (all mounting holes)"
     PLATE = 1
@@ -26,15 +34,19 @@ class Mount(Enum):
 
 
 class Led(Enum):
+    """Type of switch LED"""
+
     NONE = 0
     "No LED"
-    NORMAl = 1
+    NORMAL = 1
     "Single color LED"
     REVERSE = 2
     "Single color LED, reversed polarity"
 
 
 class Stabilizer(Enum):
+    """Type of switch stabilizer"""
+
     NONE = 0
     "No stabilizer"
     NORMAL = 1

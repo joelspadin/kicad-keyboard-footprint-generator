@@ -4,7 +4,7 @@ This repository contains scripts to generate KiCad footprints for mechanical key
 
 MX footprints are based on the [Official KiCad Library](https://gitlab.com/kicad/libraries/kicad-footprints/-/tree/master/Button_Switch_Keyboard.pretty) and [ai03's MX/Alps Library](https://github.com/ai03-2725/MX_Alps_Hybrid).
 
-
+These scripts require Python 3.10 or newer.
 
 ## Usage
 
@@ -29,3 +29,29 @@ The scripts generate footprints for standard key sizes up to 7U. To make additio
 ./scripts/make_mx_hotswap.py --out ~/projects/widget --name keyboard
 ```
 
+## Development
+
+Run the following commands to install all dependencies for the project and enable code checkers:
+
+```sh
+pip3 install .[dev]
+pre-commit install
+```
+
+[pre-commit](https://pre-commit.com/) will now automatically check your code when you make a commit.
+
+You can manually run the checks by running:
+
+```sh
+pre-commit run
+```
+
+Or to check the entire project instead of just your changes:
+
+```sh
+pre-commit run --all-files
+```
+
+### Visual Studio Code
+
+If you install the recommended extensions, workspace settings will be initialized from [.vscode/settings.default.json](.vscode/settings.default.json). This enables automatic code formatting and linting. You can further customize your settings as you like.

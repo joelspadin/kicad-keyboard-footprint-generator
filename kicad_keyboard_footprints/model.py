@@ -1,3 +1,7 @@
+"""
+3D model utilities
+"""
+
 from pathlib import Path
 from KicadModTree import Footprint, Model
 

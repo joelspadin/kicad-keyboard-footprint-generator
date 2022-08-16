@@ -3,6 +3,8 @@
         "**/__pycache__": true
     },
     "python.formatting.provider": "black",
+    "python.linting.pylintEnabled": true,
+    "python.linting.enabled": true,
     "[python]": {
         "editor.formatOnSave": true
     }

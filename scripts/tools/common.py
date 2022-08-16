@@ -1,9 +1,13 @@
+"""
+Common utilities for generator scripts.
+"""
+
 import itertools
 import shutil
 from pathlib import Path
 from typing import Callable, TypeVar
 from KicadModTree import Footprint, KicadFileHandler
-from KicadKeyboardFootprints.model import get_model_files, update_model_path
+from kicad_keyboard_footprints.model import get_model_files, update_model_path
 
 
 T = TypeVar("T")
@@ -35,12 +39,20 @@ def permute_options(**kwargs):
     lists = [to_list(x) for x in kwargs.values()]
 
     for options in itertools.product(*lists):
-        yield {key: value for key, value in zip(keys, options)}
+        yield dict(zip(keys, options))
 
 
 def make_footprints(
     out_dir: Path | str, lib_name: str, generator: Callable[..., Footprint], **kwargs
 ):
+    """
+    Generates footprints for every permutation of the given options.
+
+    :param out_dir: Output directory path
+    :param lib_name: Library name (not including ".pretty")
+    :param generator: Function to call to generate footprints
+    :param kwargs: Values to permute and pass to "generator". See permute_options().
+    """
     out_dir = Path(out_dir)
     lib_dir = out_dir / f"{lib_name}.pretty"
     lib_dir.mkdir(parents=True, exist_ok=True)
