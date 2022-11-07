@@ -109,8 +109,10 @@ def make_standard_mx_footprints(
     for standard key sizes.
     """
     # Regular keys
-    make_mx_footprints(**kwargs, units=SMALL_UNITS)
-    make_mx_footprints(**kwargs, units=LARGE_UNITS, stabilizer=STABILIZERS)
+    make_mx_footprints(out_dir, lib_name, **kwargs, units=SMALL_UNITS)
+    make_mx_footprints(
+        out_dir, lib_name, **kwargs, units=LARGE_UNITS, stabilizer=STABILIZERS
+    )
 
     # Vertical 2u
     make_mx_footprints(
