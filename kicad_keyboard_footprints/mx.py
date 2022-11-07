@@ -380,9 +380,9 @@ def add_mx_3d_model(mod: Footprint, switch=Switch.SOLDER, transform=IDENTITY):
 
 
 def _add_kailh_hotswap_model(mod: Footprint, transform: Transform):
-    HOTSWAP_MODEL = f"{LIB_PATH_PLACEHOLDER}/3dshapes/CPG151101S11.wrl"
-    HOTSWAP_POS = Vector3D(0, 0, -1.4868)
-    HOTSWAP_SCALE = to_vec3(0.3937)
+    HOTSWAP_MODEL = f"{LIB_PATH_PLACEHOLDER}/3dshapes/CPG151101S11.step"
+    HOTSWAP_POS = Vector3D(0, 0, 0)
+    HOTSWAP_SCALE = to_vec3(1)
 
     angle = Vector3D(0, 0, transform.rotate)
     center = Vector3D(transform.translate) + HOTSWAP_POS

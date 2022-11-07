@@ -4,6 +4,8 @@ This repository contains scripts to generate KiCad footprints for mechanical key
 
 MX footprints are based on the [Official KiCad Library](https://gitlab.com/kicad/libraries/kicad-footprints/-/tree/master/Button_Switch_Keyboard.pretty) and [ai03's MX/Alps Library](https://github.com/ai03-2725/MX_Alps_Hybrid).
 
+The [hotswap socket 3D model](https://grabcad.com/library/kailh-pg1511-hotswap-socket-1) is made by Evgeny Klypa and adjusted to be centered on the footprint.
+
 ## Usage
 
 These scripts require [Python 3.10 or newer](https://www.python.org/downloads/). Run the following command to install dependencies:
