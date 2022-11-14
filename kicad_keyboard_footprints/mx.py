@@ -557,7 +557,7 @@ def _add_hotswap_socket(mod: Footprint, xfrm: Transform):
     MOUNT_SIZE = 3
 
     add_smt_pad(mod, 1, PAD1_POS, size=PAD_SIZE, layers=PAD_LAYERS, transform=xfrm)
-    add_smt_pad(mod, 1, PAD2_POS, size=PAD_SIZE, layers=PAD_LAYERS, transform=xfrm)
+    add_smt_pad(mod, 2, PAD2_POS, size=PAD_SIZE, layers=PAD_LAYERS, transform=xfrm)
 
     add_npth(mod, MOUNT1_POS, size=MOUNT_SIZE, transform=xfrm)
     add_npth(mod, MOUNT2_POS, size=MOUNT_SIZE, transform=xfrm)
@@ -594,7 +594,7 @@ def _add_hotswap_socket_antishear(
     add_smt_pad(mod, 2, PAD2_POS, PAD_SIZE, layers=PAD_LAYERS, transform=xfrm)
 
     add_smt_pad(mod, 1, PASTE1_POS, PASTE_SIZE, layers=PASTE_LAYERS, transform=xfrm)
-    add_smt_pad(mod, 1, PASTE2_POS, PASTE_SIZE, layers=PASTE_LAYERS, transform=xfrm)
+    add_smt_pad(mod, 2, PASTE2_POS, PASTE_SIZE, layers=PASTE_LAYERS, transform=xfrm)
 
     add_tht_pad(mod, 1, MOUNT1_POS, MOUNT_SIZE, MOUNT_DRILL, transform=xfrm)
     add_tht_pad(mod, 2, MOUNT2_POS, MOUNT_SIZE, MOUNT_DRILL, transform=xfrm)
