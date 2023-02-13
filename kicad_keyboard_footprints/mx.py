@@ -159,23 +159,24 @@ def get_mx_stabilizer_width(units: Number) -> float:
 
 def add_mx_reference(mod: Footprint, switch=Switch.SOLDER, transform=IDENTITY):
     """Add a reference label for a switch footprint"""
-    REF_POS = Vector2D(0, 3)
-
-    layer = USER_DRAWING
-    mirror = False
 
     if switch in (Switch.HOTSWAP, Switch.HOTSWAP_ANTISHEAR):
+        center = Vector2D(0, -3.81)
         layer = B_FAB
         mirror = True
+    else:
+        center = Vector2D(0, 3)
+        layer = USER_DRAWING
+        mirror = False
 
     add_text(
         mod,
         kind=Text.TYPE_REFERENCE,
         text="REF**",
-        center=REF_POS,
+        center=center,
         mirror=mirror,
         layer=layer,
-        transform=transform.with_rotation(0),
+        transform=transform,
     )
 
 
@@ -261,14 +262,15 @@ def add_mx_switch(
     CENTER_HOLE_SIZE = 4
 
     # Front fab
-    add_square(
-        mod,
-        center=(0, 0),
-        size=F_FAB_SIZE,
-        stroke=F_FAB_STROKE,
-        layer=F_FAB,
-        transform=transform,
-    )
+    if switch == Switch.SOLDER:
+        add_square(
+            mod,
+            center=(0, 0),
+            size=F_FAB_SIZE,
+            stroke=F_FAB_STROKE,
+            layer=F_FAB,
+            transform=transform,
+        )
 
     # Front courtyard
     add_square(
@@ -563,6 +565,7 @@ def _add_hotswap_socket(mod: Footprint, xfrm: Transform):
     add_npth(mod, MOUNT2_POS, size=MOUNT_SIZE, transform=xfrm)
 
     _add_hotswap_courtyard(mod, xfrm)
+    _add_hotswap_fab(mod, xfrm)
 
 
 def _add_hotswap_socket_antishear(
@@ -583,12 +586,13 @@ def _add_hotswap_socket_antishear(
     MOUNT_SIZE = 4
     MOUNT_DRILL = 3
 
-    ANCHOR11_POS = Vector2D(-8.89, -3.302)
-    ANCHOR12_POS = Vector2D(-8.89, -1.778)
-    ANCHOR21_POS = Vector2D(7.62, -5.842)
-    ANCHOR22_POS = Vector2D(7.62, -4.318)
-    ANCHOR_SIZE = 0.8
-    ANCHOR_DRILL = 0.4
+    VIA11_POS = Vector2D(-8.89, -3.302)
+    VIA12_POS = Vector2D(-8.89, -1.778)
+    VIA21_POS = Vector2D(7.62, -5.842)
+    VIA22_POS = Vector2D(7.62, -4.318)
+    VIA_SIZE = 0.8
+    VIA_DRILL = 0.4
+    VIA = ["*.Cu"]
 
     add_smt_pad(mod, 1, PAD1_POS, PAD_SIZE, layers=PAD_LAYERS, transform=xfrm)
     add_smt_pad(mod, 2, PAD2_POS, PAD_SIZE, layers=PAD_LAYERS, transform=xfrm)
@@ -599,18 +603,16 @@ def _add_hotswap_socket_antishear(
     add_tht_pad(mod, 1, MOUNT1_POS, MOUNT_SIZE, MOUNT_DRILL, transform=xfrm)
     add_tht_pad(mod, 2, MOUNT2_POS, MOUNT_SIZE, MOUNT_DRILL, transform=xfrm)
 
-    add_tht_pad(mod, 1, ANCHOR11_POS, ANCHOR_SIZE, ANCHOR_DRILL, transform=xfrm)
-    add_tht_pad(mod, 1, ANCHOR12_POS, ANCHOR_SIZE, ANCHOR_DRILL, transform=xfrm)
-    add_tht_pad(mod, 2, ANCHOR21_POS, ANCHOR_SIZE, ANCHOR_DRILL, transform=xfrm)
-    add_tht_pad(mod, 2, ANCHOR22_POS, ANCHOR_SIZE, ANCHOR_DRILL, transform=xfrm)
+    add_tht_pad(mod, 1, VIA11_POS, VIA_SIZE, VIA_DRILL, layers=VIA, transform=xfrm)
+    add_tht_pad(mod, 1, VIA12_POS, VIA_SIZE, VIA_DRILL, layers=VIA, transform=xfrm)
+    add_tht_pad(mod, 2, VIA21_POS, VIA_SIZE, VIA_DRILL, layers=VIA, transform=xfrm)
+    add_tht_pad(mod, 2, VIA22_POS, VIA_SIZE, VIA_DRILL, layers=VIA, transform=xfrm)
 
     _add_hotswap_courtyard(mod, xfrm)
+    _add_hotswap_fab(mod, xfrm)
 
 
 def _add_hotswap_courtyard(mod: Footprint, xfrm: Transform):
-    MOUNT1_POS = Vector2D(-3.81, -2.54)
-    MOUNT2_POS = Vector2D(2.54, -5.08)
-    RADIUS = 1.524
     STROKE = 0.127
     LAYER = "B.CrtYd"
 
@@ -627,7 +629,30 @@ def _add_hotswap_courtyard(mod: Footprint, xfrm: Transform):
         (-0.4, -2.6),
     ]
 
-    add_circle(mod, MOUNT1_POS, RADIUS, layer=LAYER, stroke=STROKE, transform=xfrm)
-    add_circle(mod, MOUNT2_POS, RADIUS, layer=LAYER, stroke=STROKE, transform=xfrm)
+    add_curve(mod, POINTS, layer=LAYER, stroke=STROKE, transform=xfrm)
+
+
+def _add_hotswap_fab(mod: Footprint, xfrm: Transform):
+    LAYER = "B.Fab"
+    MOUNT1_POS = Vector2D(-3.81, -2.54)
+    MOUNT2_POS = Vector2D(2.54, -5.08)
+    RADIUS = 1.5
+    STROKE = 0.1
+
+    POINTS = [
+        (-0.5, -2.7),
+        (5.2, -2.7),
+        (5.2, -6.9),
+        (-4, -6.9),
+        ArcCenter(-4, -4.5),
+        (-6.4, -4.5),
+        (-6.4, -0.7),
+        (-2.5, -0.7),
+        ArcCenter(-0.4, -0.6),
+        (-0.5, -2.7),
+    ]
 
     add_curve(mod, POINTS, layer=LAYER, stroke=STROKE, transform=xfrm)
+
+    add_circle(mod, MOUNT1_POS, RADIUS, layer=LAYER, stroke=STROKE, transform=xfrm)
+    add_circle(mod, MOUNT2_POS, RADIUS, layer=LAYER, stroke=STROKE, transform=xfrm)

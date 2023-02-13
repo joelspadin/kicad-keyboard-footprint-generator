@@ -24,6 +24,7 @@ from .types import Number, Vec2
 
 ORIGIN = Vector2D(0, 0)
 DEFAULT_STROKE = 0.15
+DEFAULT_TEXT_SIZE = Vector2D(1, 1)
 
 
 def normalize_angle(angle: int) -> int:
@@ -144,6 +145,7 @@ def add_tht_pad(
     size: Number | Vec2,
     drill: Number | Vec2,
     shape=Pad.SHAPE_CIRCLE,
+    layers: Optional[list[str]] = None,
     transform=IDENTITY,
     **kwargs
 ):
@@ -156,6 +158,7 @@ def add_tht_pad(
     :param size: Size of the pad
     :param drill: Drill size of the pad
     :param shape: Shape of the pad (default: Pad.SHAPE_CIRCLE)
+    :param layers: Layers used for the pad (default: Pad.LAYERS_THT)
     :param transform: 2D transform to apply
     :param kwargs: Any arguments to KicadModTree.Pad()
     """
@@ -164,7 +167,7 @@ def add_tht_pad(
             number=number,
             type=Pad.TYPE_THT,
             shape=shape,
-            layers=Pad.LAYERS_THT,
+            layers=layers or Pad.LAYERS_THT,
             at=transform(center),
             size=size,
             drill=drill,
@@ -452,7 +455,7 @@ def add_text(
             text=text,
             at=transform(center),
             rotation=rotation + transform.rotate,
-            size=size,
+            size=size or DEFAULT_TEXT_SIZE,
             thickness=stroke,
             layer=layer,
             **kwargs,
