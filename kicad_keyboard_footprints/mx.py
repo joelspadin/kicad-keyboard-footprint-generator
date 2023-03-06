@@ -6,7 +6,6 @@ from typing import Dict, List, Literal
 from KicadModTree import Footprint, Model, Pad, Vector2D, Vector3D, Text
 from KicadModTree.util.paramUtil import round_to
 from .layer import B_FAB, B_SILK, F_COURT, F_FAB, F_SILK, USER_DRAWING
-from .model import LIB_PATH_PLACEHOLDER
 from .shapes import (
     IDENTITY,
     ArcCenter,
@@ -72,6 +71,7 @@ def make_mx_switch(
 
     mod = Footprint(name)
     mod.description = desc
+    set_attributes(mod, switch)
 
     transform = Transform(translate=switch_offset * UNIT_SIZE, rotate=switch_angle)
 
@@ -123,6 +123,7 @@ def make_mx_iso_enter(
 
     mod = Footprint(name)
     mod.description = desc
+    set_attributes(mod, switch)
 
     transform = Transform(rotate=switch_angle)
 
@@ -155,6 +156,19 @@ def get_mx_stabilizer_width(units: Number) -> float:
 
     # Stabilizers are 1/2 unit from each end.
     return round_to((units - 1) * UNIT_SIZE, 0.05)
+
+
+def set_attributes(mod: Footprint, switch=Switch.SOLDER):
+    """Set attributes for a switch footprint"""
+    attrs = []
+
+    if switch in (Switch.HOTSWAP, Switch.HOTSWAP_ANTISHEAR):
+        attrs.append("smd")
+
+    if switch == Switch.HOTSWAP_ANTISHEAR:
+        attrs.append("allow_soldermask_bridges")
+
+    mod.setAttribute(attrs)
 
 
 def add_mx_reference(mod: Footprint, switch=Switch.SOLDER, transform=IDENTITY):
@@ -382,7 +396,7 @@ def add_mx_3d_model(mod: Footprint, switch=Switch.SOLDER, transform=IDENTITY):
 
 
 def _add_kailh_hotswap_model(mod: Footprint, transform: Transform):
-    HOTSWAP_MODEL = f"{LIB_PATH_PLACEHOLDER}/3dshapes/CPG151101S11.step"
+    HOTSWAP_MODEL = "./3dshapes/CPG151101S11.step"
     HOTSWAP_POS = Vector3D(0, 0, 0)
     HOTSWAP_SCALE = to_vec3(1)
 
@@ -551,18 +565,25 @@ def _add_solder_pads(mod: Footprint, transform: Transform):
 def _add_hotswap_socket(mod: Footprint, xfrm: Transform):
     PAD1_POS = Vector2D(-7.085, -2.54)
     PAD2_POS = Vector2D(5.842, -5.08)
-    PAD_SIZE = Vector2D(2.55, 2.5)
-    PAD_LAYERS = ["B.Cu", "B.Mask", "B.Paste"]
 
-    MOUNT1_POS = Vector2D(-3.81, -2.54)
-    MOUNT2_POS = Vector2D(2.54, -5.08)
-    MOUNT_SIZE = 3
+    pad_props = dict(
+        size=Vector2D(2.55, 2.5),
+        shape=Pad.SHAPE_ROUNDRECT,
+        round_radius_exact=0.2,
+        layers=["B.Cu", "B.Mask", "B.Paste"],
+        transform=xfrm,
+    )
 
-    add_smt_pad(mod, 1, PAD1_POS, size=PAD_SIZE, layers=PAD_LAYERS, transform=xfrm)
-    add_smt_pad(mod, 2, PAD2_POS, size=PAD_SIZE, layers=PAD_LAYERS, transform=xfrm)
+    DRILL1_POS = Vector2D(-3.81, -2.54)
+    DRILL2_POS = Vector2D(2.54, -5.08)
 
-    add_npth(mod, MOUNT1_POS, size=MOUNT_SIZE, transform=xfrm)
-    add_npth(mod, MOUNT2_POS, size=MOUNT_SIZE, transform=xfrm)
+    drill_props = dict(size=3, transform=xfrm)
+
+    add_smt_pad(mod, 1, PAD1_POS, **pad_props)
+    add_smt_pad(mod, 2, PAD2_POS, **pad_props)
+
+    add_npth(mod, DRILL1_POS, **drill_props)
+    add_npth(mod, DRILL2_POS, **drill_props)
 
     _add_hotswap_courtyard(mod, xfrm)
     _add_hotswap_fab(mod, xfrm)
@@ -573,40 +594,50 @@ def _add_hotswap_socket_antishear(
 ):  # pylint: disable=too-many-locals
     PAD1_POS = Vector2D(-7.085, -2.54)
     PAD2_POS = Vector2D(5.842, -5.08)
-    PAD_SIZE = Vector2D(4.5, 2.5)
-    PAD_LAYERS = ["B.Cu"]
 
     PASTE1_POS = Vector2D(-7.085, -2.54)
     PASTE2_POS = Vector2D(5.815, -5.08)
-    PASTE_SIZE = Vector2D(2.55, 2.5)
-    PASTE_LAYERS = ["B.Mask", "B.Paste"]
 
-    MOUNT1_POS = Vector2D(-3.81, -2.54)
-    MOUNT2_POS = Vector2D(2.54, -5.08)
-    MOUNT_SIZE = 4
-    MOUNT_DRILL = 3
+    DRILL1_POS = Vector2D(-3.81, -2.54)
+    DRILL2_POS = Vector2D(2.54, -5.08)
 
     VIA11_POS = Vector2D(-8.89, -3.302)
     VIA12_POS = Vector2D(-8.89, -1.778)
     VIA21_POS = Vector2D(7.62, -5.842)
     VIA22_POS = Vector2D(7.62, -4.318)
-    VIA_SIZE = 0.8
-    VIA_DRILL = 0.4
-    VIA = ["*.Cu"]
 
-    add_smt_pad(mod, 1, PAD1_POS, PAD_SIZE, layers=PAD_LAYERS, transform=xfrm)
-    add_smt_pad(mod, 2, PAD2_POS, PAD_SIZE, layers=PAD_LAYERS, transform=xfrm)
+    pad_props = dict(
+        size=Vector2D(4.5, 2.5),
+        shape=Pad.SHAPE_ROUNDRECT,
+        round_radius_exact=0.2,
+        layers=["B.Cu"],
+        transform=xfrm,
+    )
 
-    add_smt_pad(mod, 1, PASTE1_POS, PASTE_SIZE, layers=PASTE_LAYERS, transform=xfrm)
-    add_smt_pad(mod, 2, PASTE2_POS, PASTE_SIZE, layers=PASTE_LAYERS, transform=xfrm)
+    paste_props = dict(
+        size=Vector2D(2.55, 2.5),
+        shape=Pad.SHAPE_ROUNDRECT,
+        round_radius_exact=0.2,
+        layers=["B.Mask", "B.Paste"],
+        transform=xfrm,
+    )
 
-    add_tht_pad(mod, 1, MOUNT1_POS, MOUNT_SIZE, MOUNT_DRILL, transform=xfrm)
-    add_tht_pad(mod, 2, MOUNT2_POS, MOUNT_SIZE, MOUNT_DRILL, transform=xfrm)
+    drill_props = dict(size=4, drill=3, transform=xfrm)
+    via_props = dict(size=0.8, drill=0.4, layers=["*.Cu"])
 
-    add_tht_pad(mod, 1, VIA11_POS, VIA_SIZE, VIA_DRILL, layers=VIA, transform=xfrm)
-    add_tht_pad(mod, 1, VIA12_POS, VIA_SIZE, VIA_DRILL, layers=VIA, transform=xfrm)
-    add_tht_pad(mod, 2, VIA21_POS, VIA_SIZE, VIA_DRILL, layers=VIA, transform=xfrm)
-    add_tht_pad(mod, 2, VIA22_POS, VIA_SIZE, VIA_DRILL, layers=VIA, transform=xfrm)
+    add_smt_pad(mod, 1, PAD1_POS, **pad_props)
+    add_smt_pad(mod, 2, PAD2_POS, **pad_props)
+
+    add_smt_pad(mod, 1, PASTE1_POS, **paste_props)
+    add_smt_pad(mod, 2, PASTE2_POS, **paste_props)
+
+    add_tht_pad(mod, 1, DRILL1_POS, **drill_props)
+    add_tht_pad(mod, 2, DRILL2_POS, **drill_props)
+
+    add_tht_pad(mod, 1, VIA11_POS, **via_props)
+    add_tht_pad(mod, 1, VIA12_POS, **via_props)
+    add_tht_pad(mod, 2, VIA21_POS, **via_props)
+    add_tht_pad(mod, 2, VIA22_POS, **via_props)
 
     _add_hotswap_courtyard(mod, xfrm)
     _add_hotswap_fab(mod, xfrm)
@@ -617,12 +648,25 @@ def _add_hotswap_courtyard(mod: Footprint, xfrm: Transform):
     LAYER = "B.CrtYd"
 
     POINTS = [
+        # Bottom
         (-0.4, -2.6),
         (5.3, -2.6),
+        # Right
+        (5.3, -3.75),
+        (7.2, -3.75),
+        (7.2, -6.4),
+        (5.3, -6.4),
+        # Top
         (5.3, -7),
         (-4, -7),
         ArcCenter(-4, -4.5),
         (-6.5, -4.5),
+        # Left
+        (-6.5, -3.875),
+        (-8.45, -3.875),
+        (-8.45, -1.2),
+        (-6.5, -1.2),
+        # Bottom
         (-6.5, -0.6),
         (-2.4, -0.6),
         ArcCenter(-0.4, -0.6),
@@ -640,12 +684,25 @@ def _add_hotswap_fab(mod: Footprint, xfrm: Transform):
     STROKE = 0.1
 
     POINTS = [
+        # Bottom
         (-0.5, -2.7),
         (5.2, -2.7),
+        # Right
+        (5.2, -3.85),
+        (7.1, -3.85),
+        (7.1, -6.3),
+        (5.2, -6.3),
+        # Top
         (5.2, -6.9),
         (-4, -6.9),
         ArcCenter(-4, -4.5),
         (-6.4, -4.5),
+        # Left
+        (-6.4, -3.775),
+        (-8.35, -3.775),
+        (-8.35, -1.3),
+        (-6.4, -1.3),
+        # Bottom
         (-6.4, -0.7),
         (-2.5, -0.7),
         ArcCenter(-0.4, -0.6),

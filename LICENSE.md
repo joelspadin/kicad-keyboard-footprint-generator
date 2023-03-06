@@ -2,11 +2,11 @@
 
 The KiCad libraries are licensed under the [Creative Commons CC-BY-SA 4.0 License](https://creativecommons.org/licenses/by-sa/4.0/legalcode), with the following exception:
 
----------
+---
 
 _To the extent that the creation of electronic designs that use 'Licensed Material' can be considered to be 'Adapted Material', then the copyright holder waives article 3 of the license with respect to these designs and any generated files which use data provided as part of the 'Licensed Material'._
 
----------
+---
 
 You can read more about KiCad library licensing [here](http://kicad.org/libraries/license).
 
@@ -18,7 +18,7 @@ Use of the library data in a project does not (by itself) require that the desig
 
 However, if you wish to redistribute the KiCad libraries, or parts thereof (including in modified form) as a collection then the exception above does not apply. Redistributed library collections must be shared under the same license agreement. Under these circumstances, the libraries must also retain attribution information, including the license documents which are distributed with the library files.
 
-----------------------
+---
 
 **Warranty**
 
@@ -26,9 +26,10 @@ The KiCad libraries are provided in the hope that they will be useful, but are p
 
 The KiCad libraries are compiled by the KiCad community - if you find an error in the library data, please help the community and contribute a fix!
 
+### MX_V2 License
 
-
-### MX_Alps_Hybrid License
+https://github.com/ai03-2725/MX_Alps_Hybrid
+https://github.com/ai03-2725/MX_V2
 
 MIT License
 

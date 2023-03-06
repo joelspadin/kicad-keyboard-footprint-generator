@@ -6,12 +6,15 @@ import itertools
 import shutil
 from pathlib import Path
 from typing import Callable, TypeVar
-from KicadModTree import Footprint, KicadFileHandler
-from kicad_keyboard_footprints.model import get_model_files, update_model_path
+from KicadModTree import Footprint
+from kicad_keyboard_footprints.file import FileHandler
+from kicad_keyboard_footprints.model import get_model_files
 
 
 T = TypeVar("T")
 MaybeList = T | list[T] | None
+
+REPO_PATH = Path(__file__).parent.parent.parent
 
 
 def to_list(x: MaybeList[T]) -> list[T]:
@@ -59,18 +62,17 @@ def make_footprints(
 
     for options in permute_options(**kwargs):
         mod = generator(**options)
-        update_model_path(mod, lib_name)
-        _copy_models(out_dir, mod)
+        _copy_models(lib_dir, mod)
 
-        file = KicadFileHandler(mod)
+        file = FileHandler(mod)
         file.writeFile(lib_dir / f"{mod.name}.kicad_mod")
 
 
-def _copy_models(out_dir: Path, mod: Footprint):
-    source = Path(__file__).parent.parent.parent / "3dshapes"
+def _copy_models(lib_dir: Path, mod: Footprint):
+    source = REPO_PATH / "3dshapes"
 
     for path in get_model_files(mod):
-        dest = out_dir / path
+        dest = lib_dir / path
         if not dest.exists():
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy(source / path.name, dest)
